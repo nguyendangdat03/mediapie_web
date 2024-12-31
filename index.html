@@ -1,224 +1,393 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="Cache-Control" content="no-cache">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="logo.png">
+    <link rel="icon" href="logo.png">
 
-        <link rel="apple-touch-icon" href="logo.png">
-        <link rel="icon" href="logo.png">
+    <title>WebGL Fluid Simulation with Hand Tracking</title>
+    <meta name="description" content="A WebGL fluid simulation with hand tracking interaction">
 
-        <title>WebGL Fluid Simulation</title>
-        <meta name="description" content="A WebGL fluid simulation that works in mobile browsers.">
+    <script async src="https://docs.opencv.org/master/opencv.js"></script>
+    <script type="text/javascript" src="dat.gui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
-        <meta property="og:type" content="website">
-        <meta property="og:title" content="Webgl Fluid Simulation">
-        <meta property="og:description" content="A WebGL fluid simulation that works in mobile browsers.">
-        <meta property="og:url" content="https://paveldogreat.github.io/WebGL-Fluid-Simulation/">
-        <meta property="og:image" content="https://paveldogreat.github.io/WebGL-Fluid-Simulation/logo.png">
+    <style>
+        /* Existing fluid simulation styles */
+        @font-face {
+            font-family: 'iconfont';
+            src: url('iconfont.ttf') format('truetype');
+        }
 
-        <script type="text/javascript" src="dat.gui.min.js"></script>
-        <style>
-            @font-face {
-                font-family: 'iconfont';
-                src: url('iconfont.ttf') format('truetype');
-            }
+        * {
+            user-select: none;
+        }
 
-            * {
-                user-select: none;
-            }
+        html, body {
+            overflow: hidden;
+            background-color: #000;
+            margin: 0;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
 
-            html, body {
-                overflow: hidden;
-                background-color: #000;
-            }
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
 
-            body {
-                margin: 0;
-                position: fixed;
-                width: 100%;
-                height: 100%;
-            }
+        /* Hand tracking cursor styles */
+        .hand-cursor {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: rgba(0, 255, 0, 0);
+            border: 2px solid rgba(255, 255, 255, 0);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+            transition: all 0.1s ease;
+        }
 
-            canvas {
-                width: 100%;
-                height: 100%;
-            }
+        /* Existing promo and other styles from fluid simulation */
+        .promo {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            overflow: auto;
+            color: lightblue;
+            background-color: rgba(0,0,0,0.4);
+            animation: promo-appear-animation 0.35s ease-out;
+        }
 
-            .dg {
-                opacity: 0.9;
-            }
+        /* ... (rest of the original styles) ... */
+    </style>
+</head>
+<body>
+    <canvas></canvas>
+    <div class="hand-cursor" id="hand-cursor"></div>
 
-            .dg .property-name {
-                overflow: visible;
-            }
-
-            .bigFont {
-                font-size: 150%;
-                color: #8C8C8C;
-            }
-
-            .cr.function.appBigFont {
-                font-size: 150%;
-                line-height: 27px;
-                color: #A5F8D3;
-                background-color: #023C40;
-            }
-
-            .cr.function.appBigFont .property-name {
-                float: none;
-            }
-
-            .cr.function.appBigFont .icon {
-                position: sticky;
-                bottom: 27px;
-            }
-
-            .icon {
-                font-family: 'iconfont';
-                font-size: 130%;
-                float: right;
-            }
-
-            .twitter:before {
-                content: 'a';
-            }
-
-            .github:before {
-                content: 'b';
-            }
-
-            .app:before {
-                content: 'c';
-            }
-
-            .discord:before {
-                content: 'd';
-            }
-
-            .promo {
-                display: none;
-                /* display: table; */
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                z-index: 1;
-                overflow: auto;
-                color: lightblue;
-                background-color: rgba(0,0,0,0.4);
-                animation: promo-appear-animation 0.35s ease-out;
-            }
-
-            .promo-middle {
-                display: table-cell;
-                vertical-align: middle;
-            }
-
-            .promo-content {
-                width: 80vw;
-                height: 80vh;
-                max-width: 80vh;
-                max-height: 80vw;
-                margin: auto;
-                padding: 0;
-                font-size: 2.8vmax;
-                font-family: Futura, "Trebuchet MS", Arial, sans-serif;
-                text-align: center;
-                background-image: url("promo_back.png");
-                background-position: center;
-                background-repeat: no-repeat;
-                background-size: cover;
-                border-radius: 15px;
-                box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
-            }
-
-            .promo-header {
-                height: 10%;
-                padding: 2px 16px;
-            }
-
-            .promo-close {
-                width: 10%;
-                height: 100%;
-                text-align: left;
-                float: left;
-                font-size: 1.3em;
-                /* transition: 0.2s; */
-            }
-
-            .promo-close:hover {
-                /* transform: scale(1.25); */
-                cursor: pointer;
-            }
-
-            .promo-body {
-                padding: 8px 16px 16px 16px;
-                margin: auto;
-            }
-
-            .promo-body p {
-                margin-top: 0;
-                mix-blend-mode: color-dodge;
-            }
-
-            .link {
-                width: 100%;
-                display: inline-block;
-            }
-
-            .link img {
-                width: 100%;
-            }
-
-            @keyframes promo-appear-animation {
-                0% {
-                    transform: scale(2.0);
-                    opacity: 0;
-                }
-                100% {
-                    transform: scale(1.0);
-                    opacity: 1;
-                }
-            }
-        </style>
-        <script>
-            window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
-            ga('create', 'UA-105392568-1', 'auto');
-            ga('send', 'pageview');
-        </script>
-        <script async src="https://www.google-analytics.com/analytics.js"></script>
-    </head>
-    <body>
-        <canvas></canvas>
-
-        <!-- Mother of God, pls forgive me -->
-        <div class="promo">
-            <div class="promo-middle">
-                <div class="promo-content">
-                    <div class="promo-header">
-                        <span class="promo-close">&times;</span>
-                    </div>
-                    <div class="promo-body">
-                        <p>Try Fluid Simulation app!</p>
-                        <div class="links-container">
-                            <a class="link" id="apple_link" target="_blank">
-                                <img class="link-img" alt="Download on the App Store" src="app_badge.png"/>
-                            </a>
-                            <a class="link" id="google_link" target="_blank">
-                                <img class="link-img" alt="Get it on Google Play" src="gp_badge.png"/>
-                            </a>
-                        </div>
+    <!-- Promo section from original fluid simulation -->
+    <div class="promo">
+        <div class="promo-middle">
+            <div class="promo-content">
+                <div class="promo-header">
+                    <span class="promo-close">&times;</span>
+                </div>
+                <div class="promo-body">
+                    <p>Try Fluid Simulation app!</p>
+                    <div class="links-container">
+                        <a class="link" id="apple_link" target="_blank">
+                            <img class="link-img" alt="Download on the App Store" src="app_badge.png"/>
+                        </a>
+                        <a class="link" id="google_link" target="_blank">
+                            <img class="link-img" alt="Get it on Google Play" src="gp_badge.png"/>
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <script src="./script.js"></script>
-    </body>
+    <script>
+        // Hand tracking setup
+        const videoElement = document.createElement('video');
+        videoElement.style.display = 'none';
+        document.body.appendChild(videoElement);
+
+        const handCursor = document.getElementById('hand-cursor');
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoElement.srcObject = stream;
+                await videoElement.play();
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+            }
+        }
+
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+        });
+
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const handLandmarks = results.multiHandLandmarks[0];
+        
+                // Use index finger tip (landmark 8) as the cursor position
+                const indexFingerTip = handLandmarks[8];
+                const x = indexFingerTip.x * window.innerWidth;
+                const y = indexFingerTip.y * window.innerHeight;
+
+                handCursor.style.left = `${x}px`;
+                handCursor.style.top = `${y}px`;
+
+                // Simulate mouse interaction with fluid simulation
+                const canvasRect = canvas.getBoundingClientRect();
+                const canvasX = x - canvasRect.left;
+                const canvasY = y - canvasRect.top;
+        
+                // Simulate mouse down when hand is detected
+                if (!pointers[0].down) {
+                    const mouseDownEvent = new MouseEvent('mousedown', {
+                        clientX: x,
+                        clientY: y
+                    });
+                    canvas.dispatchEvent(mouseDownEvent);
+                }
+
+                // Simulate mouse move
+                const mouseMoveEvent = new MouseEvent('mousemove', {
+                    clientX: x,
+                    clientY: y
+                });
+                canvas.dispatchEvent(mouseMoveEvent);
+            } else {
+                // Simulate mouse up when hand is not detected
+                if (pointers[0].down) {
+                    const mouseUpEvent = new MouseEvent('mouseup');
+                    window.dispatchEvent(mouseUpEvent);
+                }
+            }
+        });
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({ image: videoElement });
+            },
+            width: 640,
+            height: 480,
+        });
+
+        // Start camera and hand tracking
+        startCamera().then(() => {
+            camera.start();
+        });
+
+        // Analytics (from original script)
+        window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+        ga('create', 'UA-105392568-1', 'auto');
+        ga('send', 'pageview');
+
+
+        // Function to get pointer color based on position
+        function getPointerColor(x, y) {
+            const hue = (x / canvas.width) * 360;
+            const saturation = 1 - (y / canvas.height);
+            return HSVtoRGB(hue / 360, saturation, 1);
+        }
+
+        // Modify the updatePointerDownData function
+        function updatePointerDownData(pointer, id, posX, posY) {
+            pointer.id = id;
+            pointer.down = true;
+            pointer.moved = false;
+            pointer.texcoordX = posX / canvas.width;
+            pointer.texcoordY = 1.0 - posY / canvas.height;
+            pointer.prevTexcoordX = pointer.texcoordX;
+            pointer.prevTexcoordY = pointer.texcoordY;
+            pointer.deltaX = 0;
+            pointer.deltaY = 0;
+            pointer.color = getPointerColor(posX, posY);
+        }
+
+        // Modify the updatePointerMoveData function
+        function updatePointerMoveData(pointer, posX, posY) {
+            pointer.prevTexcoordX = pointer.texcoordX;
+            pointer.prevTexcoordY = pointer.texcoordY;
+            pointer.texcoordX = posX / canvas.width;
+            pointer.texcoordY = 1.0 - posY / canvas.height;
+            pointer.deltaX = correctDeltaX(pointer.texcoordX - pointer.prevTexcoordX);
+            pointer.deltaY = correctDeltaY(pointer.texcoordY - pointer.prevTexcoordY);
+            pointer.moved = Math.abs(pointer.deltaX) > 0 || Math.abs(pointer.deltaY) > 0;
+            pointer.color = getPointerColor(posX, posY);
+        }
+    </script>
+
+    <!-- Original fluid simulation script (ensure this is the correct path) -->
+    <script src="./script.js"></script>
+    <script async src="https://www.google-analytics.com/analytics.js"></script>
+    <script>
+    // Fluid simulation interaction code
+    const canvas = document.querySelector('canvas');
+    const pointers = [];
+    const config = { PAUSED: false };
+    const splatStack = [];
+
+    function pointerPrototype() {
+        this.id = -1;
+        this.x = 0;
+        this.y = 0;
+        this.dx = 0;
+        this.dy = 0;
+        this.down = false;
+        this.moved = false;
+        this.color = [30, 0, 300];
+    }
+
+    function scaleByPixelRatio(input) {
+        const pixelRatio = window.devicePixelRatio || 1;
+        return Math.floor(input * pixelRatio);
+    }
+
+    canvas.addEventListener('mousedown', e => {
+        let posX = scaleByPixelRatio(e.offsetX);
+        let posY = scaleByPixelRatio(e.offsetY);
+        let pointer = pointers.find(p => p.id == -1);
+        if (pointer == null)
+            pointer = new pointerPrototype();
+        updatePointerDownData(pointer, -1, posX, posY);
+    });
+
+    canvas.addEventListener('mousemove', e => {
+        let posX = scaleByPixelRatio(e.offsetX);
+        let posY = scaleByPixelRatio(e.offsetY);
+        updatePointerMoveData(pointers[0], posX, posY);
+    });
+
+    window.addEventListener('mouseup', () => {
+        updatePointerUpData(pointers[0]);
+    });
+
+    canvas.addEventListener('touchstart', e => {
+        e.preventDefault();
+        const touches = e.targetTouches;
+        while (touches.length >= pointers.length)
+            pointers.push(new pointerPrototype());
+        for (let i = 0; i < touches.length; i++) {
+            let posX = scaleByPixelRatio(touches[i].pageX);
+            let posY = scaleByPixelRatio(touches[i].pageY);
+            updatePointerDownData(pointers[i + 1], touches[i].identifier, posX, posY);
+        }
+    });
+
+    canvas.addEventListener('touchmove', e => {
+        e.preventDefault();
+        const touches = e.targetTouches;
+        for (let i = 0; i < touches.length; i++) {
+            let pointer = pointers[i + 1];
+            let posX = scaleByPixelRatio(touches[i].pageX);
+            let posY = scaleByPixelRatio(touches[i].pageY);
+            updatePointerMoveData(pointer, posX, posY);
+        }
+    }, false);
+
+    window.addEventListener('touchend', e => {
+        const touches = e.changedTouches;
+        for (let i = 0; i < touches.length; i++)
+        {
+            let pointer = pointers.find(p => p.id == touches[i].identifier);
+            if (pointer == null) continue;
+            updatePointerUpData(pointer);
+        }
+    });
+
+    window.addEventListener('keydown', e => {
+        if (e.code === 'KeyP')
+            config.PAUSED = !config.PAUSED;
+        if (e.key === ' ')
+            splatStack.push(parseInt(Math.random() * 20) + 5);
+    });
+
+    function updatePointerDownData(pointer, id, posX, posY) {
+        pointer.id = id;
+        pointer.down = true;
+        pointer.moved = false;
+        pointer.texcoordX = posX / canvas.width;
+        pointer.texcoordY = 1.0 - posY / canvas.height;
+        pointer.prevTexcoordX = pointer.texcoordX;
+        pointer.prevTexcoordY = pointer.texcoordY;
+        pointer.deltaX = 0;
+        pointer.deltaY = 0;
+        pointer.color = generateColor();
+    }
+
+    function updatePointerMoveData(pointer, posX, posY) {
+        pointer.prevTexcoordX = pointer.texcoordX;
+        pointer.prevTexcoordY = pointer.texcoordY;
+        pointer.texcoordX = posX / canvas.width;
+        pointer.texcoordY = 1.0 - posY / canvas.height;
+        pointer.deltaX = correctDeltaX(pointer.texcoordX - pointer.prevTexcoordX);
+        pointer.deltaY = correctDeltaY(pointer.texcoordY - pointer.prevTexcoordY);
+        pointer.moved = Math.abs(pointer.deltaX) > 0 || Math.abs(pointer.deltaY) > 0;
+    }
+
+    function updatePointerUpData(pointer) {
+        pointer.down = false;
+    }
+
+    function correctDeltaX(delta) {
+        let aspectRatio = canvas.width / canvas.height;
+        if (aspectRatio < 1) delta *= aspectRatio;
+        return delta;
+    }
+
+    function correctDeltaY(delta) {
+        let aspectRatio = canvas.width / canvas.height;
+        if (aspectRatio > 1) delta /= aspectRatio;
+        return delta;
+    }
+
+    function generateColor() {
+        let c = HSVtoRGB(Math.random(), 1.0, 1.0);
+        c.r *= 0.15;
+        c.g *= 0.15;
+        c.b *= 0.15;
+        return c;
+    }
+
+    function HSVtoRGB(h, s, v) {
+        let r, g, b, i, f, p, q, t;
+        i = Math.floor(h * 6);
+        f = h * 6 - i;
+        p = v * (1 - s);
+        q = v * (1 - f * s);
+        t = v * (1 - (1 - f) * s);
+
+        switch (i % 6) {
+            case 0: r = v, g = t, b = p; break;
+            case 1: r = q, g = v, b = p; break;
+            case 2: r = p, g = v, b = t; break;
+            case 3: r = p, g = q, b = v; break;
+            case 4: r = t, g = p, b = v; break;
+            case 5: r = v, g = p, b = q; break;
+        }
+
+        return {
+            r: Math.round(r * 255),
+            g: Math.round(g * 255),
+            b: Math.round(b * 255)
+        };
+    }
+
+    // Function to simulate mouse movement for hand tracking
+    //window.simulateMouseMove = function(x, y) {
+    //    const event = new MouseEvent('mousemove', {
+    //        clientX: x,
+    //        clientY: y
+    //    });
+    //    canvas.dispatchEvent(event);
+    //};
+</script>
+</body>
 </html>
+
+                

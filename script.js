@@ -1,58 +1,6 @@
-/*
-MIT License
-
-Copyright (c) 2017 Pavel Dobryakov
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
-
 'use strict';
 
-// Mobile promo section
-
-const promoPopup = document.getElementsByClassName('promo')[0];
-const promoPopupClose = document.getElementsByClassName('promo-close')[0];
-
-if (isMobile()) {
-    setTimeout(() => {
-        promoPopup.style.display = 'table';
-    }, 20000);
-}
-
-promoPopupClose.addEventListener('click', e => {
-    promoPopup.style.display = 'none';
-});
-
-const appleLink = document.getElementById('apple_link');
-appleLink.addEventListener('click', e => {
-    ga('send', 'event', 'link promo', 'app');
-    window.open('https://apps.apple.com/us/app/fluid-simulation/id1443124993');
-});
-
-const googleLink = document.getElementById('google_link');
-googleLink.addEventListener('click', e => {
-    ga('send', 'event', 'link promo', 'app');
-    window.open('https://play.google.com/store/apps/details?id=games.paveldogreat.fluidsimfree');
-});
-
 // Simulation section
-
 const canvas = document.getElementsByTagName('canvas')[0];
 resizeCanvas();
 
@@ -103,9 +51,9 @@ pointers.push(new pointerPrototype());
 
 const { gl, ext } = getWebGLContext(canvas);
 
-if (isMobile()) {
-    config.DYE_RESOLUTION = 512;
-}
+// Removed mobile-specific condition
+config.DYE_RESOLUTION = 1024;
+
 if (!ext.supportLinearFiltering) {
     config.DYE_RESOLUTION = 512;
     config.SHADING = false;
@@ -236,52 +184,6 @@ function startGUI () {
     captureFolder.add(config, 'TRANSPARENT').name('transparent');
     captureFolder.add({ fun: captureScreenshot }, 'fun').name('take screenshot');
 
-    let github = gui.add({ fun : () => {
-        window.open('https://github.com/PavelDoGreat/WebGL-Fluid-Simulation');
-        ga('send', 'event', 'link button', 'github');
-    } }, 'fun').name('Github');
-    github.__li.className = 'cr function bigFont';
-    github.__li.style.borderLeft = '3px solid #8C8C8C';
-    let githubIcon = document.createElement('span');
-    github.domElement.parentElement.appendChild(githubIcon);
-    githubIcon.className = 'icon github';
-
-    let twitter = gui.add({ fun : () => {
-        ga('send', 'event', 'link button', 'twitter');
-        window.open('https://twitter.com/PavelDoGreat');
-    } }, 'fun').name('Twitter');
-    twitter.__li.className = 'cr function bigFont';
-    twitter.__li.style.borderLeft = '3px solid #8C8C8C';
-    let twitterIcon = document.createElement('span');
-    twitter.domElement.parentElement.appendChild(twitterIcon);
-    twitterIcon.className = 'icon twitter';
-
-    let discord = gui.add({ fun : () => {
-        ga('send', 'event', 'link button', 'discord');
-        window.open('https://discordapp.com/invite/CeqZDDE');
-    } }, 'fun').name('Discord');
-    discord.__li.className = 'cr function bigFont';
-    discord.__li.style.borderLeft = '3px solid #8C8C8C';
-    let discordIcon = document.createElement('span');
-    discord.domElement.parentElement.appendChild(discordIcon);
-    discordIcon.className = 'icon discord';
-
-    let app = gui.add({ fun : () => {
-        ga('send', 'event', 'link button', 'app');
-        window.open('http://onelink.to/5b58bn');
-    } }, 'fun').name('Check out mobile app');
-    app.__li.className = 'cr function appBigFont';
-    app.__li.style.borderLeft = '3px solid #00FF7F';
-    let appIcon = document.createElement('span');
-    app.domElement.parentElement.appendChild(appIcon);
-    appIcon.className = 'icon app';
-
-    if (isMobile())
-        gui.close();
-}
-
-function isMobile () {
-    return /Mobi|Android/i.test(navigator.userAgent);
 }
 
 function captureScreenshot () {
@@ -339,14 +241,6 @@ function textureToCanvas (texture, width, height) {
     return captureCanvas;
 }
 
-function downloadURI (filename, uri) {
-    let link = document.createElement('a');
-    link.download = filename;
-    link.href = uri;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
 
 class Material {
     constructor (vertexShader, fragmentShaderSource) {
@@ -426,7 +320,7 @@ function compileShader (type, source, keywords) {
         console.trace(gl.getShaderInfoLog(shader));
 
     return shader;
-};
+}
 
 function addKeywords (source, keywords) {
     if (keywords == null) return source;
@@ -437,6 +331,7 @@ function addKeywords (source, keywords) {
     return keywordsString + source;
 }
 
+// Base Vertex Shader
 const baseVertexShader = compileShader(gl.VERTEX_SHADER, `
     precision highp float;
 
@@ -458,6 +353,7 @@ const baseVertexShader = compileShader(gl.VERTEX_SHADER, `
     }
 `);
 
+// Blur Vertex Shader
 const blurVertexShader = compileShader(gl.VERTEX_SHADER, `
     precision highp float;
 
@@ -476,6 +372,7 @@ const blurVertexShader = compileShader(gl.VERTEX_SHADER, `
     }
 `);
 
+// Fragment Shaders
 const blurShader = compileShader(gl.FRAGMENT_SHADER, `
     precision mediump float;
     precision mediump sampler2D;
@@ -1471,11 +1368,9 @@ canvas.addEventListener('mousedown', e => {
 });
 
 canvas.addEventListener('mousemove', e => {
-    let pointer = pointers[0];
-    if (!pointer.down) return;
     let posX = scaleByPixelRatio(e.offsetX);
     let posY = scaleByPixelRatio(e.offsetY);
-    updatePointerMoveData(pointer, posX, posY);
+    updatePointerMoveData(pointers[0], posX, posY);
 });
 
 window.addEventListener('mouseup', () => {
@@ -1499,7 +1394,6 @@ canvas.addEventListener('touchmove', e => {
     const touches = e.targetTouches;
     for (let i = 0; i < touches.length; i++) {
         let pointer = pointers[i + 1];
-        if (!pointer.down) continue;
         let posX = scaleByPixelRatio(touches[i].pageX);
         let posY = scaleByPixelRatio(touches[i].pageY);
         updatePointerMoveData(pointer, posX, posY);
@@ -1643,4 +1537,5 @@ function hashCode (s) {
         hash |= 0; // Convert to 32bit integer
     }
     return hash;
-};
+};  
+
